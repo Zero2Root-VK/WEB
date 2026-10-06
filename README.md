@@ -1,3 +1,56 @@
+# WABVE — Web Authorization & Business Logic Verification Engine
+
+WABVE finds authorization and business-logic flaws in web applications by
+differential testing. It builds a **reference policy** (who should be allowed to
+do what), compares it against the **actual policy** the target enforces, and
+only reports a finding when the two disagree **and** corroborating evidence
+exists — a protected payload coming back, or a persisted state delta re-read
+after the write. `HTTP 200` alone is never a finding.
+
+## Run modes
+
+| Mode | What runs | Network |
+| --- | --- | --- |
+| **Live target** (default) | Real HTTP engine — `src/convex/runner.ts` | Outbound requests to the allowlisted host only |
+| **Demo lab** | Modelled application with a known flaw | None — in-process |
+
+Every live request passes a deny-by-default scope guard (host allowlist with
+dotted-suffix matching, path allowlist checked on raw *and* normalised paths,
+HTTP-method allowlist), a token-bucket rate limiter, a hard request budget and
+a kill switch — before any socket opens. Destructive (`DELETE`) probes need
+explicit approval, and dry-run withholds every mutating request.
+
+## Architecture
+
+- `src/convex/real/` — the pure, unit-tested core:
+  - `engine.ts` — scope guard, rate bucket, secret redaction, state diffing, differential oracle
+  - `discovery.ts` — OpenAPI / HAR / HTML / JS-bundle endpoint parsers
+  - `executor.ts` — the only place in the codebase that opens a socket
+  - `suite.ts` — cross-identity probe planning and execution (baseline → attack → owner re-read)
+  - `secrets.ts` — AES-256-GCM + HKDF credential encryption
+  - `reporting.ts` — evidence → rows/coverage mapping (category, CWE, OWASP, severity)
+- `src/convex/runner.ts` — Node action chain: discover → model → probe (chunked) → report
+- `src/convex/pipeline.ts` — the internal data plane the runner reads/writes through (unreachable from browsers)
+- `src/convex/wabve.ts` — public queries/mutations plus the demo-lab pipeline
+
+Identity credentials are encrypted server-side before storage; no query returns
+them or their ciphertext — only a two-character mask. The runner decrypts them
+in memory for a single dispatch.
+
+## Commands
+
+- `bun test` — unit tests for the engine, discovery, executor, suite, secrets and reporting
+- `bun run typecheck` — `tsc -b --noEmit`
+- `bunx convex dev --once` — codegen + push to the dev deployment
+
+## Environment variables
+
+- `WABVE_SECRETS_KEY` (min 16 chars) — set it in the project's **Keys** tab.
+  Encrypts stored identity credentials. Without it, credential intake refuses
+  and live runs stop with an actionable error instead of failing silently.
+
+---
+
 ## Overview
 
 This project uses the following tech stack:

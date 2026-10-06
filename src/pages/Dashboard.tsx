@@ -17,7 +17,6 @@ import { FindingsPanel } from "@/components/wabve/FindingsPanel";
 import { AuthzGraph, WorkflowPanel } from "@/components/wabve/graphs";
 import {
   AttackSurfacePanel,
-  CoveragePanel,
   IdentitiesPanel,
   OverviewPanel,
   readCoverage,
@@ -42,7 +41,7 @@ import {
   Users,
 } from "lucide-react";
 import type { ComponentType } from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
@@ -83,30 +82,35 @@ export default function Dashboard() {
   const deleteEngagement = useMutation(api.wabve.deleteEngagement);
   const setKillSwitch = useMutation(api.wabve.setKillSwitch);
 
-  useEffect(() => {
-    if (!engagements || engagements.length === 0) return;
-    if (!selectedId || !engagements.some((e) => e._id === selectedId)) {
-      setSelectedId(engagements[0]._id);
-    }
-  }, [engagements, selectedId]);
+  // Selection is derived during render rather than synced in an effect: the
+  // first engagement is active until the operator picks another one, and a
+  // deleted selection falls back to the next available engagement.
+  const activeId =
+    selectedId && engagements?.some((e) => e._id === selectedId)
+      ? selectedId
+      : (engagements?.[0]?._id ?? null);
 
-  const engagement = engagements?.find((e) => e._id === selectedId) ?? null;
+  const engagement = engagements?.find((e) => e._id === activeId) ?? null;
 
   const identities = useQuery(
     api.wabve.listIdentities,
-    selectedId ? { engagementId: selectedId } : "skip",
+    activeId ? { engagementId: activeId } : "skip",
   );
   const endpoints = useQuery(
     api.wabve.listEndpoints,
-    selectedId ? { engagementId: selectedId } : "skip",
+    activeId ? { engagementId: activeId } : "skip",
   );
-  const objects = useQuery(api.wabve.listObjects, selectedId ? { engagementId: selectedId } : "skip");
-  const tests = useQuery(api.wabve.listTests, selectedId ? { engagementId: selectedId } : "skip");
+  const objects = useQuery(api.wabve.listObjects, activeId ? { engagementId: activeId } : "skip");
+  const tests = useQuery(api.wabve.listTests, activeId ? { engagementId: activeId } : "skip");
   const findings = useQuery(
     api.wabve.listFindings,
-    selectedId ? { engagementId: selectedId } : "skip",
+    activeId ? { engagementId: activeId } : "skip",
   );
-  const events = useQuery(api.wabve.listEvents, selectedId ? { engagementId: selectedId } : "skip");
+  const events = useQuery(api.wabve.listEvents, activeId ? { engagementId: activeId } : "skip");
+  const credentialMasks = useQuery(
+    api.pipeline.listCredentialMasks,
+    activeId ? { engagementId: activeId } : "skip",
+  );
 
   const coverage = engagement ? readCoverage(engagement) : null;
   const running = engagement?.status === "running";
@@ -129,20 +133,20 @@ export default function Dashboard() {
   };
 
   const handleRerun = async () => {
-    if (!selectedId) return;
-    await startEngagement({ engagementId: selectedId });
+    if (!activeId) return;
+    await startEngagement({ engagementId: activeId });
     toast.success("Verification engine restarted");
   };
 
   const handleKill = async () => {
-    if (!selectedId) return;
-    await setKillSwitch({ engagementId: selectedId, value: true });
+    if (!activeId) return;
+    await setKillSwitch({ engagementId: activeId, value: true });
     toast.warning("Kill switch engaged");
   };
 
   const handleDelete = async (id: Id<"engagements">) => {
     await deleteEngagement({ engagementId: id });
-    if (selectedId === id) setSelectedId(null);
+    if (activeId === id) setSelectedId(null);
     toast.success("Engagement deleted");
   };
 
@@ -213,7 +217,7 @@ export default function Dashboard() {
 
             {engagements && engagements.length > 0 ? (
               <Select
-                value={selectedId ?? ""}
+                value={activeId ?? ""}
                 onValueChange={(value) => setSelectedId(value as Id<"engagements">)}
               >
                 <SelectTrigger className="h-8 w-full max-w-xs font-mono text-xs sm:w-64">
@@ -247,6 +251,15 @@ export default function Dashboard() {
                   ) : null}
                   {engagement.status}
                 </Badge>
+                <Tag
+                  className={
+                    (engagement.mode ?? "live") === "demo"
+                      ? "border-amber-500/40 text-amber-300"
+                      : "border-teal-400/40 text-teal-300"
+                  }
+                >
+                  {(engagement.mode ?? "live") === "demo" ? "demo lab" : "live target"}
+                </Tag>
                 {coverage ? (
                   <>
                     {(["critical", "high", "medium"] as const)
@@ -323,7 +336,7 @@ export default function Dashboard() {
           ) : section === "engagements" ? (
             <EngagementsPanel
               engagements={engagements}
-              selectedId={selectedId}
+              selectedId={activeId}
               onSelect={(id) => {
                 setSelectedId(id);
                 setSection("overview");
@@ -344,12 +357,19 @@ export default function Dashboard() {
                   findings={findings ?? []}
                 />
               ) : null}
-              {section === "identities" ? <IdentitiesPanel identities={identities ?? []} /> : null}
+              {section === "identities" ? (
+                <IdentitiesPanel
+                  identities={identities ?? []}
+                  engagementId={activeId ?? undefined}
+                  credentials={credentialMasks ?? []}
+                />
+              ) : null}
               {section === "surface" ? (
                 <AttackSurfacePanel
                   endpoints={endpoints ?? []}
                   tests={tests ?? []}
                   objects={objects ?? []}
+                  engagementId={activeId ?? undefined}
                 />
               ) : null}
               {section === "authz" ? (

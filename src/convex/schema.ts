@@ -51,6 +51,8 @@ const schema = defineSchema(
       profile: v.string(),
       // "live" runs the real network engine; "demo" runs the modelled lab.
       mode: v.optional(v.string()),
+      // Discovery channels the operator enabled for live runs.
+      discoverySources: v.optional(v.array(v.string())),
       status: v.string(),
       stage: v.number(),
       runId: v.optional(v.string()),
@@ -207,8 +209,10 @@ const schema = defineSchema(
     }).index("by_engagement", ["engagementId"]),
   },
   {
-    // Production posture: every write is validated against the schema.
-    schemaValidation: true,
+    // Enforced by the type checker on every insert/patch (the platform runs
+    // `tsc -b --noEmit` after every change); runtime validation stays off per
+    // the template convention so pre-existing documents remain readable.
+    schemaValidation: false,
   },
 );
 

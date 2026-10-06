@@ -14,7 +14,7 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { ActionCtx } from "./_generated/server";
-import { action } from "./_generated/server";
+import { internalAction } from "./_generated/server";
 import {
   findingCode,
   realCoverage,
@@ -25,6 +25,7 @@ import {
 } from "./real/reporting";
 import { authorize, createBucket, type ScopeConfig } from "./real/engine";
 import {
+  extractFromJs,
   mergeEndpoints,
   parseForms,
   parseHtml,
@@ -254,7 +255,7 @@ function endpointRowFor(ep: DiscoveredEndpoint, scope: ScopeConfig, base: string
 /* stage 1 — discovery                                                 */
 /* ------------------------------------------------------------------ */
 
-export const discover = action({
+export const discover = internalAction({
   args: { engagementId: v.id("engagements"), runId: v.string() },
   handler: async (ctx, args) =>
     guard(ctx, args, async () => {
@@ -305,7 +306,20 @@ export const discover = action({
       const rate = rateStateFor(scope);
       let used = engagement.requestsUsed;
       let blocked = engagement.blockedOutOfScope;
-      const budgetLeft = () => !scope.killSwitch && used < scope.requestBudget;
+      /**
+       * Re-read live run state before every outbound phase: the kill switch
+       * and the budget are operator controls and must take effect promptly,
+       * not at the next stage boundary.
+       */
+      const stopRequested = async (): Promise<boolean> => {
+        if (scope.killSwitch) return true;
+        const live = await ctx.runQuery(internal.pipeline.getRunState, {
+          engagementId: args.engagementId,
+        });
+        if (!live || live.runId !== args.runId || live.status !== "running") return true;
+        if (live.killSwitch) return true;
+        return used >= live.requestBudget;
+      };
 
       const collected: DiscoveredEndpoint[] = data.artifactEndpoints.map((a) => ({
         method: a.method,
@@ -321,14 +335,29 @@ export const discover = action({
         });
       }
 
-      // 1. the landing page, for links and forms
-      const root = await fetchDocument({
-        scope,
-        url: `${base}/`,
-        requestsUsed: used,
-        rate,
-        timeoutMs: DISCOVER_TIMEOUT_MS,
+      // Which live channels the operator enabled. An empty list (legacy
+      // engagements) keeps every channel on.
+      const enabled = engagement.discoverySources ?? [];
+      const wants = (key: string) => enabled.length === 0 || enabled.includes(key);
+      const liveCrawl = wants("browser") || wants("forced-browsing");
+      const specProbing = wants("openapi");
+      const passiveJs = wants("passive-js");
+      events.push({
+        level: "INFO",
+        phase: "discovery",
+        message: `Discovery channels — crawl ${liveCrawl ? "on" : "off"}, openapi ${specProbing ? "on" : "off"}, passive-js ${passiveJs ? "on" : "off"}`,
       });
+
+      // 1. the landing page, for links and forms
+      const root = liveCrawl
+        ? await fetchDocument({
+            scope,
+            url: `${base}/`,
+            requestsUsed: used,
+            rate,
+            timeoutMs: DISCOVER_TIMEOUT_MS,
+          })
+        : ({ kind: "skipped" } as const);
       if (root.kind === "ok") {
         used += 1;
         const html = root.text.slice(0, MAX_DOC_BYTES);
@@ -344,9 +373,12 @@ export const discover = action({
         events.push({
           level: "WARN",
           phase: "discovery",
-          message: `Root fetch blocked by the scope guard: ${root.reason} — ${root.detail}`,
+          message:
+            root.reason === "path_not_allowed"
+              ? `Root fetch blocked: ${root.detail}. Crawling needs the site root inside the allowed paths — add "/" (or the app base path), or import an OpenAPI/HAR artefact instead.`
+              : `Root fetch blocked by the scope guard: ${root.reason} — ${root.detail}`,
         });
-      } else {
+      } else if (root.kind === "error") {
         events.push({
           level: "WARN",
           phase: "discovery",
@@ -359,20 +391,32 @@ export const discover = action({
         .filter((e) => e.path.endsWith(".json"))
         .map((e) => e.path)
         .slice(0, 3);
-      const specCandidates = Array.from(
-        new Set([
-          "/openapi.json",
-          "/swagger.json",
-          "/v3/api-docs",
-          "/api-docs",
-          "/swagger/v1/swagger.json",
-          ...jsonLinks,
-        ]),
-      ).slice(0, specLimit(engagement.profile) + 3);
+      // Spec locations inside the declared path allowlist come first — a
+      // scope-guarded target refuses everything outside those prefixes.
+      const scopedSpecs = scope.allowedPaths
+        .map((raw) => raw.trim())
+        .filter((raw) => raw !== "" && raw !== "/")
+        .flatMap((raw) => {
+          const prefix = raw.endsWith("/") ? raw : `${raw}/`;
+          return [`${prefix}openapi.json`, `${prefix}swagger.json`];
+        });
+      const specCandidates = !specProbing
+        ? []
+        : Array.from(
+            new Set([
+              ...scopedSpecs,
+              "/openapi.json",
+              "/swagger.json",
+              "/v3/api-docs",
+              "/api-docs",
+              "/swagger/v1/swagger.json",
+              ...jsonLinks,
+            ]),
+          ).slice(0, specLimit(engagement.profile) + 5);
 
       let specsFound = 0;
       for (const path of specCandidates) {
-        if (!budgetLeft() || specsFound >= specLimit(engagement.profile)) break;
+        if ((await stopRequested()) || specsFound >= specLimit(engagement.profile)) break;
         const result = await fetchDocument({
           scope,
           url: `${base}${path}`,
@@ -404,13 +448,15 @@ export const discover = action({
       }
 
       // 3. one bounded crawl level over the pages we already know about
-      const crawlCandidates = mergeEndpoints(collected)
+      const crawlCandidates = !liveCrawl
+        ? []
+        : mergeEndpoints(collected)
         .filter((e) => e.source === "html" || e.source === "js")
         .filter((e) => !e.path.endsWith(".json"))
         .slice(0, crawlLimit(engagement.profile));
       let crawled = 0;
       for (const candidate of crawlCandidates) {
-        if (!budgetLeft()) break;
+        if (await stopRequested()) break;
         const result = await fetchDocument({
           scope,
           url: `${base}${candidate.path}`,
@@ -426,7 +472,17 @@ export const discover = action({
         used += 1;
         crawled += 1;
         const text = result.text.slice(0, MAX_DOC_BYTES);
-        if (/html/i.test(result.contentType) || text.trimStart().startsWith("<")) {
+        if (passiveJs && /\.m?js(?:$|\?)/i.test(candidate.path)) {
+          const fromBundle = extractFromJs(text, base);
+          collected.push(...fromBundle);
+          if (fromBundle.length > 0) {
+            events.push({
+              level: "INFO",
+              phase: "discovery",
+              message: `${candidate.path}: ${fromBundle.length} route literal(s) extracted from bundle`,
+            });
+          }
+        } else if (/html/i.test(result.contentType) || text.trimStart().startsWith("<")) {
           collected.push(...parseHtml(text, base), ...parseForms(text, base));
         }
       }
@@ -437,11 +493,11 @@ export const discover = action({
           message: `Crawled ${crawled} page(s) inside the allowlist`,
         });
       }
-      if (!budgetLeft() && !scope.killSwitch) {
+      if (await stopRequested()) {
         events.push({
           level: "WARN",
           phase: "safety",
-          message: "Request budget exhausted during discovery — remaining fetches were withheld",
+          message: "Discovery stopped early — kill switch engaged or request budget exhausted",
         });
       }
 
@@ -527,7 +583,7 @@ function collectionScore(path: string): number {
   return score;
 }
 
-export const model = action({
+export const model = internalAction({
   args: { engagementId: v.id("engagements"), runId: v.string() },
   handler: async (ctx, args) =>
     guard(ctx, args, async () => {
@@ -596,7 +652,18 @@ export const model = action({
         let ok = 0;
         let unauthorised = 0;
         for (const endpoint of collections) {
-          if (scope.killSwitch || used >= scope.requestBudget) break;
+          const live = await ctx.runQuery(internal.pipeline.getRunState, {
+            engagementId: args.engagementId,
+          });
+          if (
+            !live ||
+            live.runId !== args.runId ||
+            live.status !== "running" ||
+            live.killSwitch ||
+            used >= live.requestBudget
+          ) {
+            break;
+          }
           const outcome = await dispatch({
             scope,
             request: { method: "GET", url: `${base}${endpoint.path}` },
@@ -712,7 +779,7 @@ export const model = action({
 /* stage 3 — cross-identity probes (chunked)                           */
 /* ------------------------------------------------------------------ */
 
-export const probe = action({
+export const probe = internalAction({
   args: {
     engagementId: v.id("engagements"),
     runId: v.string(),
@@ -744,6 +811,22 @@ export const probe = action({
           finishedAt: Date.now(),
         });
         return;
+      }
+
+      // A session the model stage proved dead (401 on every read) must not be
+      // replayed: it wastes budget and turns every probe into noise.
+      const deadSessions = new Set(
+        data.identities
+          .filter((i) => i.status === "unauthenticated" && i.authMethod !== "none")
+          .map((i) => i.key),
+      );
+      if (deadSessions.size > 0) {
+        identities = identities.filter((i) => !deadSessions.has(i.key));
+        events.push({
+          level: "WARN",
+          phase: "identity",
+          message: `${deadSessions.size} identity session(s) returned 401 during modelling and were excluded — re-check their credentials before the next run`,
+        });
       }
 
       const identitiesByKey = new Map(identities.map((i) => [i.key, i]));
@@ -846,6 +929,7 @@ export const probe = action({
       // transport, and is recorded as blocked evidence instead.
       const runnable: ProbePlan[] = [];
       const blockedRows: TestRowShape[] = [];
+      let preblocked = 0;
       for (const plan of slice) {
         const decision = authorize({
           scope,
@@ -855,6 +939,7 @@ export const probe = action({
           destructive: plan.destructive,
         });
         if (!decision.allowed) {
+          preblocked += 1;
           blockedRows.push(
             toBlockedTestRow({
               plan,
@@ -884,6 +969,11 @@ export const probe = action({
           if (outcome.kind === "sent") {
             state.used += 1;
             return { status: outcome.response.status, body: outcome.response.body };
+          }
+          if (outcome.kind === "error") {
+            // Timeout / DNS / reset — the suite counts it as a transport error
+            // and never turns it into a finding.
+            throw new Error(outcome.message);
           }
           if (outcome.reason === "rate_limited") {
             await sleep(Math.ceil(1000 / Math.max(1, scope.rateLimit)) + 50);
@@ -967,7 +1057,7 @@ export const probe = action({
         message: `Chunk ${args.chunk + 1}: ${testRows.length} result(s) — ${passed} passed, ${failed} violated, ${inconclusive} inconclusive, ${blockedRows.length} blocked, ${result.errors} transport error(s)`,
       });
 
-      const blockedTotal = engagement.blockedOutOfScope + state.blocked;
+      const blockedTotal = engagement.blockedOutOfScope + state.blocked + preblocked;
       await ctx.runMutation(internal.pipeline.updateRunProgress, {
         engagementId: args.engagementId,
         runId: args.runId,
@@ -1035,13 +1125,14 @@ export const probe = action({
 /* stage 4 — coverage + report                                         */
 /* ------------------------------------------------------------------ */
 
-export const report = action({
+export const report = internalAction({
   args: { engagementId: v.id("engagements"), runId: v.string() },
   handler: async (ctx, args) =>
     guard(ctx, args, async () => {
       const data = await loadRun(ctx, args, { lenient: true });
       if (!data) return;
       const engagement = data.engagement;
+      await setStage(ctx, args, 6);
       const endpoints = await ctx.runQuery(internal.pipeline.getEndpoints, {
         engagementId: args.engagementId,
       });

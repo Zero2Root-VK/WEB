@@ -60,6 +60,7 @@ export const REFERENCE_PRESET = {
   rateLimit: 5,
   requestBudget: 2000,
   profile: "balanced",
+  mode: "demo" as const,
   identities: IDENTITY_PRESETS as IdentityDraft[],
 };
 
@@ -100,6 +101,7 @@ export function EngagementWizard({
     "forced-browsing",
   ]);
   const [profile, setProfile] = useState(initial?.profile ?? "balanced");
+  const [mode, setMode] = useState<string>(initial?.mode ?? "live");
   const [destructiveTesting, setDestructiveTesting] = useState(false);
   const [dryRun, setDryRun] = useState(false);
   const [startNow, setStartNow] = useState(true);
@@ -134,6 +136,26 @@ export function EngagementWizard({
       setStep(3);
       return;
     }
+    if (mode === "live") {
+      let valid = false;
+      try {
+        const url = new URL(target.trim());
+        valid =
+          (url.protocol === "http:" || url.protocol === "https:") &&
+          hostList.length > 0 &&
+          rateLimit >= 1 &&
+          requestBudget >= 10;
+      } catch {
+        valid = false;
+      }
+      if (!valid) {
+        toast.error(
+          "Live mode needs a valid http(s) target, at least one allowed host, a rate limit ≥ 1 and a budget ≥ 10.",
+        );
+        setStep(0);
+        return;
+      }
+    }
     setBusy(true);
     try {
       const id = await createEngagement({
@@ -146,14 +168,24 @@ export function EngagementWizard({
         destructiveTesting,
         dryRun,
         profile,
-        identities: identities.map((i) => ({ ...i, authMethod })),
+        mode,
+        discoverySources: sources,
+        // The anonymous identity stays anonymous regardless of the auth
+        // method selected for the rest of the matrix.
+        identities: identities.map((i) => ({
+          ...i,
+          authMethod: i.role === "anonymous" ? "none" : authMethod,
+        })),
       });
-      toast.success("Engagement created");
       onCreated?.(id);
       onOpenChange(false);
-      if (startNow) {
+      if (mode === "demo" && startNow) {
         await startEngagement({ engagementId: id });
-        toast.success("Verification engine started");
+        toast.success("Demo lab created and running");
+      } else if (mode === "live") {
+        toast.success("Live engagement created — add identity credentials, then press Run");
+      } else {
+        toast.success("Engagement saved as a draft");
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not create the engagement");
@@ -200,9 +232,31 @@ export function EngagementWizard({
                 <Field label="Engagement name">
                   <Input value={name} onChange={(e) => setName(e.target.value)} />
                 </Field>
-                <Field label="Target base URL" hint="Used for reporting and the audit trail.">
+                <Field
+                  label="Target base URL"
+                  hint="Where the engine sends real requests in live mode; also used for reporting."
+                >
                   <Input value={target} onChange={(e) => setTarget(e.target.value)} />
                 </Field>
+                <div className="space-y-2">
+                  <Label className="font-mono text-[11px] tracking-wide text-muted-foreground uppercase">
+                    Mode
+                  </Label>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <ModeCard
+                      active={mode === "live"}
+                      onClick={() => setMode("live")}
+                      title="Live target"
+                      detail="Real HTTP requests against the allowlisted host, behind the scope guard, rate limiter and budget."
+                    />
+                    <ModeCard
+                      active={mode === "demo"}
+                      onClick={() => setMode("demo")}
+                      title="Demo lab"
+                      detail="Modelled application with a known flaw — no network traffic. Evaluating the product end to end."
+                    />
+                  </div>
+                </div>
               </>
             ) : null}
 
@@ -380,14 +434,14 @@ export function EngagementWizard({
             {step === 7 ? (
               <div className="space-y-4">
                 <ToggleRow
-                  label="Start the engine immediately"
-                  hint="Otherwise the engagement is saved as a draft."
+                  label="Start the demo lab immediately"
+                  hint="Live engagements start from the dashboard once credentials are stored."
                   checked={startNow}
                   onChange={setStartNow}
                 />
                 <div className="rounded-md border border-border/60 bg-background/40 p-4 font-mono text-[11px]">
-                  {[
-                    ["name", name],
+                  {                    [["name", name],
+                    ["mode", mode === "live" ? "live target" : "demo lab"],
                     ["target", target],
                     ["hosts", hostList.join(", ") || "—"],
                     ["paths", pathList.join(", ") || "any"],
@@ -455,6 +509,32 @@ function Field({
       {children}
       {hint ? <p className="text-[11px] text-muted-foreground">{hint}</p> : null}
     </div>
+  );
+}
+
+function ModeCard({
+  active,
+  onClick,
+  title,
+  detail,
+}: {
+  active: boolean;
+  onClick: () => void;
+  title: string;
+  detail: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded-md border px-4 py-3 text-left transition-colors",
+        active ? "border-primary/50 bg-primary/10" : "border-border/60 bg-background/40 hover:border-border",
+      )}
+    >
+      <p className="text-sm font-medium">{title}</p>
+      <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">{detail}</p>
+    </button>
   );
 }
 

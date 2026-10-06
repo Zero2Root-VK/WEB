@@ -135,6 +135,7 @@ export const getRunContext = internalQuery({
         role: i.role,
         tenant: i.tenant,
         authMethod: i.authMethod,
+        status: i.status,
       })),
       credentials: credentials.map((c) => ({
         identityKey: c.identityKey,

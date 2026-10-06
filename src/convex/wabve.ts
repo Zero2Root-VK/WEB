@@ -197,6 +197,7 @@ export const createEngagement = mutation({
     profile: v.string(),
     /** "live" runs the real network engine, "demo" runs the modelled lab. */
     mode: v.optional(v.string()),
+    discoverySources: v.optional(v.array(v.string())),
     identities: v.array(
       v.object({
         key: v.string(),
@@ -225,6 +226,7 @@ export const createEngagement = mutation({
       killSwitch: false,
       profile: args.profile,
       mode: args.mode ?? "live",
+      ...(args.discoverySources ? { discoverySources: args.discoverySources } : {}),
       status: "draft",
       stage: -1,
       requestsUsed: 0,

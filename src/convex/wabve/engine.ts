@@ -676,18 +676,6 @@ export function planProbes(scope: ScopeConfig): Probe[] {
   return probes;
 }
 
-interface Execution {
-  actualAllow: boolean;
-  referenceAllow: boolean;
-  statusCode: number;
-  response: string;
-  beforeState?: Record<string, unknown>;
-  afterState?: Record<string, unknown>;
-  delta: DeltaEntry[];
-  signals: string[];
-  blocked: boolean;
-}
-
 function snapshot(obj: LabObject | null): Record<string, unknown> | undefined {
   if (!obj) return undefined;
   return { ...obj.state, owner: obj.owner, tenant: obj.tenant };

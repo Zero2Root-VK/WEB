@@ -100,9 +100,6 @@ export function probeNameFor(method: string): string {
   return "cross_identity_write";
 }
 
-function endpointLabel(record: { method: string; path: string }): string {
-  return `${record.method.toUpperCase()} ${record.path}`;
-}
 
 /* ------------------------------------------------------------------ */
 /* findings                                                            */
@@ -255,8 +252,8 @@ export function toTestRow(input: {
         .filter(Boolean)
         .join("\n"),
     ),
-    beforeState: parseIfJson(record.baselineBody),
-    afterState: parseIfJson(record.attackBody),
+    beforeState: parseIfJson(clip(record.baselineBody)),
+    afterState: parseIfJson(clip(record.attackBody)),
     ...(record.delta.length > 0 ? { stateDelta: record.delta } : {}),
   };
 }
@@ -373,8 +370,8 @@ export function toFindingRow(input: {
         .filter(Boolean)
         .join("\n"),
     ),
-    beforeState: parseIfJson(record.beforeState),
-    afterState: parseIfJson(record.afterState),
+    beforeState: parseIfJson(clip(record.beforeState)),
+    afterState: parseIfJson(clip(record.afterState)),
     ...(record.delta.length > 0 ? { stateDelta: record.delta } : {}),
     signals: record.signals,
     reproduction: reproductionFor(record, { attacker: actorLabel, owner: ownerLabel }),

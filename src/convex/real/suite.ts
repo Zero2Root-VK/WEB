@@ -297,6 +297,17 @@ export async function executeSuite(args: {
   let errors = 0;
   let counter = 0;
 
+  /**
+   * A transport that refuses a request (scope guard, rate limiter, budget,
+   * safety gate) reports it as a block. Blocked probes are evidence that a
+   * control worked — errors are infrastructure failures. Either way the plan
+   * is skipped: an incomplete exchange can never become a finding.
+   */
+  const recordFailure = (error: unknown): void => {
+    if (error instanceof Error && error.message.startsWith("blocked:")) blocked += 1;
+    else errors += 1;
+  };
+
   for (const plan of args.plans) {
     if (args.shouldContinue && !(await args.shouldContinue())) break;
 
@@ -314,8 +325,8 @@ export async function executeSuite(args: {
       ownerStatus = baseline.status;
       baselineBody = baseline.body;
       requestsUsed += 1;
-    } catch {
-      errors += 1;
+    } catch (error) {
+      recordFailure(error);
       continue;
     }
 
@@ -326,8 +337,8 @@ export async function executeSuite(args: {
       attackerStatus = attack.status;
       attackBody = attack.body;
       requestsUsed += 1;
-    } catch {
-      errors += 1;
+    } catch (error) {
+      recordFailure(error);
       continue;
     }
 

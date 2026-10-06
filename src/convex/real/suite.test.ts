@@ -353,4 +353,34 @@ describe("suite execution — control flow", () => {
     expect(result.errors).toBe(1);
     expect(result.findings).toHaveLength(0);
   });
+
+  it("counts a refused dispatch as blocked evidence, not as an error", async () => {
+    const result = await executeSuite({
+      plans: plans(),
+      identitiesByKey: byKey,
+      transport: async () => {
+        throw new Error("blocked:path_not_allowed — /api is outside the allowlist");
+      },
+    });
+    expect(result.blocked).toBe(1);
+    expect(result.errors).toBe(0);
+    expect(result.tests).toEqual([]);
+    expect(result.findings).toHaveLength(0);
+  });
+
+  it("awaits an asynchronous shouldContinue between probes", async () => {
+    let checks = 0;
+    const expected = plans().length;
+    const result = await executeSuite({
+      plans: plans(),
+      identitiesByKey: byKey,
+      transport: async () => ({ status: 403, body: '{"error":"forbidden"}' }),
+      shouldContinue: async () => {
+        checks += 1;
+        return true;
+      },
+    });
+    expect(checks).toBe(expected);
+    expect(result.tests).toHaveLength(expected);
+  });
 });

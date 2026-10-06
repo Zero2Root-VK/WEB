@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { Doc } from "@/convex/_generated/dataModel";
+import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
@@ -21,6 +21,7 @@ import {
   Route,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import { ArtifactImport, CredentialControl } from "./intake";
 import {
   CATEGORY_LABEL,
   EmptyState,
@@ -267,7 +268,15 @@ export function OverviewPanel({
   );
 }
 
-export function IdentitiesPanel({ identities }: { identities: Doc<"identities">[] }) {
+export function IdentitiesPanel({
+  identities,
+  engagementId,
+  credentials,
+}: {
+  identities: Doc<"identities">[];
+  engagementId?: Id<"engagements">;
+  credentials?: Array<{ identityKey: string; mask: string }>;
+}) {
   return (
     <div className="space-y-6">
       <PanelHeader
@@ -316,9 +325,22 @@ export function IdentitiesPanel({ identities }: { identities: Doc<"identities">[
                   </div>
                   <div>
                     <dt className="text-muted-foreground uppercase">Secret</dt>
-                    <dd className="text-foreground/85">{identity.secretHint ?? "redacted"}</dd>
+                    <dd className="text-foreground/85">
+                      {credentials?.find((c) => c.identityKey === identity.key)?.mask ??
+                        identity.secretHint ??
+                        "redacted"}
+                    </dd>
                   </div>
                 </dl>
+                {engagementId && identity.authMethod !== "none" ? (
+                  <CredentialControl
+                    engagementId={engagementId}
+                    identityKey={identity.key}
+                    identityLabel={identity.label}
+                    authMethod={identity.authMethod}
+                    mask={credentials?.find((c) => c.identityKey === identity.key)?.mask}
+                  />
+                ) : null}
               </CardContent>
             </Card>
           ))}
@@ -332,10 +354,12 @@ export function AttackSurfacePanel({
   endpoints,
   tests,
   objects,
+  engagementId,
 }: {
   endpoints: Doc<"endpoints">[];
   tests: Doc<"tests">[];
   objects: Doc<"objects">[];
+  engagementId?: Id<"engagements">;
 }) {
   const failsByEndpoint = new Map<string, number>();
   for (const test of tests) {
@@ -349,6 +373,9 @@ export function AttackSurfacePanel({
       <PanelHeader
         title="Attack surface"
         description="Unified endpoint registry produced by the discovery stage, enriched with observed roles and risk."
+        actions={
+          engagementId ? <ArtifactImport engagementId={engagementId} /> : undefined
+        }
       />
       {endpoints.length === 0 ? (
         <EmptyState

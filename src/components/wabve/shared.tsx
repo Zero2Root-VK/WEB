@@ -244,12 +244,12 @@ export const IDENTITY_PRESETS = [
 ];
 
 export const DISCOVERY_SOURCES = [
-  { key: "browser", label: "Browser crawl (Playwright/Chromium)", detail: "Links, forms, XHR/fetch, GraphQL, websockets" },
-  { key: "openapi", label: "OpenAPI / Swagger import", detail: "Paths, parameters, request bodies" },
-  { key: "har", label: "HAR / Burp export", detail: "Captured browser or proxy traffic" },
-  { key: "passive-js", label: "Passive JS / source maps", detail: "Endpoints embedded in bundles" },
-  { key: "forced-browsing", label: "Forced browsing", detail: "Privileged paths, bounded and rate limited" },
-  { key: "manual", label: "Manual endpoint entry", detail: "Endpoints supplied by the operator" },
+  { key: "browser", label: "Application crawl", detail: "Links, forms and pages fetched inside the allowlist" },
+  { key: "openapi", label: "OpenAPI / Swagger probing", detail: "Well-known spec locations on the target, parsed for paths and parameters" },
+  { key: "har", label: "HAR / Burp export", detail: "Import a capture from the Attack surface panel" },
+  { key: "passive-js", label: "Passive JS extraction", detail: "Route literals pulled from bundles discovered while crawling" },
+  { key: "forced-browsing", label: "Forced browsing", detail: "Bounded fetches of known pages, rate limited and budgeted" },
+  { key: "manual", label: "Manual endpoint entry", detail: "Paste METHOD /path lines in the Attack surface panel" },
 ];
 
 export const SEVERITY_ORDER: Record<string, number> = {
