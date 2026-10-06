@@ -44,7 +44,9 @@
 
 /* CHANGE VALUES FOR THEME */
 :root {
-  --radius: 0.5rem;
+  /* Tighter than the shadcn default: this is an operator console, and softer
+     corners read as a marketing page. */
+  --radius: 0.375rem;
   --background: oklch(0.16 0.012 255);
   --foreground: oklch(0.94 0.006 250);
   --card: oklch(0.199 0.014 255);

@@ -421,59 +421,51 @@ function Onboarding({
   onLoadReference: () => void;
 }) {
   return (
-    <div className="mx-auto max-w-3xl space-y-8 py-6">
-      <div>
-        <Badge
-          variant="outline"
-          className="gap-2 rounded-full border-primary/30 bg-primary/5 px-3 py-1 font-mono text-[10px] tracking-[0.16em] text-primary uppercase"
-        >
-          <span className="size-1.5 animate-pulse rounded-full bg-primary" />
-          No engagements yet
-        </Badge>
-        <h1 className="mt-4 text-2xl font-semibold tracking-tight sm:text-3xl">
-          Model the application. Prove the authorization gap.
-        </h1>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-          WABVE builds an application and authorization model, generates a
-          test matrix across identities and objects, executes every probe behind
-          a scope guard, and only reports a finding when a reference policy
-          disagrees with the target <em>and</em> the state delta proves it.
-        </p>
-      </div>
+    <div className="mx-auto max-w-3xl py-6">
+      <p className="font-mono text-[10px] tracking-[0.24em] text-muted-foreground uppercase">
+        <span className="mr-2 text-primary">/</span>
+        No engagements yet
+      </p>
+      <h1 className="mt-4 text-2xl leading-tight font-semibold tracking-tight text-balance sm:text-3xl">
+        Model the application. Prove the authorization gap.
+      </h1>
+      <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground text-pretty">
+        WABVE builds an application and authorization model, generates a test
+        matrix across identities and objects, executes every probe behind a scope
+        guard, and reports a finding only when a reference policy disagrees with
+        the target <em>and</em> the state delta proves it.
+      </p>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
         <Button className="gap-2 font-mono text-xs" onClick={onCreate}>
           <Target className="size-4" />
           Create an engagement
         </Button>
-        <Button
-          variant="outline"
-          className="gap-2 border-border/70 font-mono text-xs"
+        <button
+          type="button"
           onClick={onLoadReference}
+          className="font-mono text-[11px] tracking-[0.12em] text-muted-foreground uppercase underline decoration-border underline-offset-[6px] transition-colors hover:text-foreground"
         >
-          <Play className="size-4" />
           Load the reference engagement
-        </Button>
+        </button>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <ol className="mt-10 border-t border-border/70">
         {STAGES.map((stage, i) => (
-          <div
+          <li
             key={stage.key}
-            className="flex items-start gap-3 rounded-md border border-border/60 bg-card/40 px-4 py-3"
+            className="flex flex-wrap items-baseline gap-x-5 gap-y-1 border-b border-border/70 py-3"
           >
-            <span className="font-mono text-[10px] text-primary">
+            <span className="font-mono text-[10px] text-primary tabular-nums">
               {String(i + 1).padStart(2, "0")}
             </span>
-            <div>
-              <p className="text-sm font-medium">{stage.label}</p>
-              <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
-                {STAGE_DETAIL[stage.key] ?? ""}
-              </p>
-            </div>
-          </div>
+            <span className="w-28 shrink-0 text-sm font-medium">{stage.label}</span>
+            <span className="font-mono text-[11px] leading-5 text-muted-foreground">
+              {STAGE_DETAIL[stage.key] ?? ""}
+            </span>
+          </li>
         ))}
-      </div>
+      </ol>
     </div>
   );
 }
