@@ -41,6 +41,9 @@ in memory for a single dispatch.
 ## Commands
 
 - `bun test` — unit tests for the engine, discovery, executor, suite, secrets, reporting and runplan
+- `bun run demo:live` — runs a complete live assessment end to end against a self-hosted,
+  deliberately vulnerable two-tenant API and writes `wabve-reports/wabve-live-report.{json,md}`.
+  The target is created by the script itself, so the demonstration is authorised by construction.
 - `bun run typecheck` — `tsc -b --noEmit`
 - `bunx convex dev --once` — codegen + push to the dev deployment
 
