@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
-import { Code2, Download, FileText, Printer } from "lucide-react";
+import { Download } from "lucide-react";
 import { useMemo } from "react";
 import { toast } from "sonner";
 import { CATEGORY_LABEL, CodeBlock, PanelHeader, SEVERITY_CLASS, Tag } from "./shared";
@@ -525,15 +525,6 @@ export function ReportsPanel(input: ReportInput) {
           <Card key={format.key} className="border-border/60 bg-card/40 py-0 shadow-none">
             <CardContent className="flex items-center justify-between gap-3 px-4 py-4">
               <div className="flex items-center gap-3">
-                <div className="flex size-9 items-center justify-center rounded-md border border-border/60 bg-background/50">
-                  {format.key === "pdf" ? (
-                    <Printer className="size-4 text-primary" />
-                  ) : format.key === "json" || format.key === "sarif" ? (
-                    <Code2 className="size-4 text-primary" />
-                  ) : (
-                    <FileText className="size-4 text-primary" />
-                  )}
-                </div>
                 <div>
                   <p className="text-sm font-medium">{format.label}</p>
                   <p className="font-mono text-[10px] text-muted-foreground">{format.hint}</p>

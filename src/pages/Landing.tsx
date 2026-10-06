@@ -144,7 +144,7 @@ function Logo() {
 function Kicker({ children }: { children: ReactNode }) {
   return (
     <p className="font-mono text-[10px] tracking-[0.24em] text-muted-foreground uppercase">
-      <span className="mr-2 text-primary">/</span>
+      <span className="mr-2 text-foreground/40">/</span>
       {children}
     </p>
   );
@@ -194,13 +194,13 @@ export default function Landing() {
         <section className="mx-auto w-full max-w-6xl px-5 pt-16 pb-14 sm:px-8 sm:pt-24 sm:pb-20">
           <div className="grid gap-14 lg:grid-cols-[1.08fr_0.92fr] lg:items-start lg:gap-16">
             <div>
-              <h1 className="text-4xl leading-[1.04] font-semibold tracking-[-0.02em] text-balance sm:text-5xl lg:text-6xl">
+              <h1 className="text-5xl leading-[1.03] font-semibold tracking-[-0.025em] text-balance sm:text-6xl xl:text-7xl">
                 HTTP&nbsp;200 is not a finding.
                 <br />
                 <span className="text-muted-foreground">A state delta is.</span>
               </h1>
 
-              <p className="mt-7 max-w-xl text-[15px] leading-7 text-muted-foreground text-pretty">
+              <p className="mt-7 max-w-xl text-base leading-7 text-muted-foreground text-pretty sm:text-lg sm:leading-8">
                 WABVE models who is allowed to do what, then checks whether the
                 application actually enforces it. Each probe is judged against a
                 reference policy and a before/after snapshot, so a finding carries
@@ -232,7 +232,7 @@ export default function Landing() {
                     <dt className="font-mono text-[9px] tracking-[0.16em] text-muted-foreground uppercase">
                       {label}
                     </dt>
-                    <dd className="mt-2 font-mono text-2xl leading-none font-semibold tabular-nums">
+                    <dd className="mt-3 font-mono text-3xl leading-none font-semibold tabular-nums">
                       {value}
                     </dd>
                   </div>
@@ -312,15 +312,15 @@ export default function Landing() {
 
         {/* ── method ───────────────────────────────────────────── */}
         <section id="principle" className="border-t border-border/70">
-          <div className="mx-auto w-full max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
-            <motion.div {...fadeUp} className="grid gap-6 lg:grid-cols-[0.42fr_0.58fr]">
+          <div className="mx-auto w-full max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
+            <motion.div {...fadeUp} className="grid gap-8 lg:grid-cols-[0.42fr_0.58fr]">
               <div>
                 <Kicker>Method</Kicker>
-                <h2 className="mt-4 text-3xl leading-tight font-semibold tracking-tight text-balance sm:text-4xl">
+                <h2 className="mt-5 text-4xl leading-[1.1] font-semibold tracking-tight text-balance sm:text-5xl">
                   Judge behaviour, not responses.
                 </h2>
               </div>
-              <p className="text-[15px] leading-7 text-muted-foreground text-pretty lg:pt-8">
+              <p className="text-base leading-7 text-muted-foreground text-pretty sm:text-[17px] lg:pt-8">
                 A scanner that treats <span className="font-mono text-foreground/90">200 OK</span> as
                 proof fills a report with noise. WABVE answers a longer question
                 first: who is acting, on whose object, through which endpoint,
@@ -358,7 +358,7 @@ export default function Landing() {
               </div>
 
               <div className="bg-primary/[0.045] p-6">
-                <p className="font-mono text-[10px] tracking-[0.16em] text-primary uppercase">
+                <p className="font-mono text-[10px] tracking-[0.16em] text-foreground/70 uppercase">
                   WABVE
                 </p>
                 <ol className="mt-5 space-y-2 font-mono text-[11px]">
@@ -410,15 +410,15 @@ export default function Landing() {
 
         {/* ── test classes (specification table, not an icon grid) ── */}
         <section id="classes" className="border-t border-border/70">
-          <div className="mx-auto w-full max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
-            <motion.div {...fadeUp} className="grid gap-6 lg:grid-cols-[0.42fr_0.58fr]">
+          <div className="mx-auto w-full max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
+            <motion.div {...fadeUp} className="grid gap-8 lg:grid-cols-[0.42fr_0.58fr]">
               <div>
                 <Kicker>Test classes</Kicker>
-                <h2 className="mt-4 text-3xl leading-tight font-semibold tracking-tight text-balance sm:text-4xl">
+                <h2 className="mt-5 text-4xl leading-[1.1] font-semibold tracking-tight text-balance sm:text-5xl">
                   Deep where scanners are shallow.
                 </h2>
               </div>
-              <p className="text-[15px] leading-7 text-muted-foreground text-pretty lg:pt-8">
+              <p className="text-base leading-7 text-muted-foreground text-pretty sm:text-[17px] lg:pt-8">
                 Authorization and business-logic defects are contextual. Each
                 class below declares the policy it checks and the signal that has
                 to appear in the evidence before a finding can be raised — the
@@ -435,7 +435,7 @@ export default function Landing() {
                   <h3 className="text-sm font-semibold tracking-tight">{row.klass}</h3>
                   <p className="text-xs leading-5 text-muted-foreground">{row.policy}</p>
                   <div className="flex items-baseline gap-4 font-mono text-[10px] sm:justify-end">
-                    <span className="text-teal-300/90">{row.signal}</span>
+                    <span className="text-foreground/75">{row.signal}</span>
                     <span className="w-24 text-right text-muted-foreground">
                       {row.cwe} · {row.owasp}
                     </span>
@@ -453,15 +453,15 @@ export default function Landing() {
 
         {/* ── pipeline ─────────────────────────────────────────── */}
         <section id="pipeline" className="border-t border-border/70">
-          <div className="mx-auto w-full max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
-            <motion.div {...fadeUp} className="grid gap-6 lg:grid-cols-[0.42fr_0.58fr]">
+          <div className="mx-auto w-full max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
+            <motion.div {...fadeUp} className="grid gap-8 lg:grid-cols-[0.42fr_0.58fr]">
               <div>
                 <Kicker>Pipeline</Kicker>
-                <h2 className="mt-4 text-3xl leading-tight font-semibold tracking-tight text-balance sm:text-4xl">
+                <h2 className="mt-5 text-4xl leading-[1.1] font-semibold tracking-tight text-balance sm:text-5xl">
                   Eight stages, each one auditable.
                 </h2>
               </div>
-              <p className="text-[15px] leading-7 text-muted-foreground text-pretty lg:pt-8">
+              <p className="text-base leading-7 text-muted-foreground text-pretty sm:text-[17px] lg:pt-8">
                 The engine owns authentication, execution, state capture and
                 evidence. No model declares a finding, and no stage can skip the
                 scope guard — the same guard that refuses a redirect hop is the
@@ -475,7 +475,7 @@ export default function Landing() {
                   key={stage.n}
                   className="border-b border-border/70 py-5 pr-6 sm:odd:border-r sm:odd:pr-6 lg:border-r lg:last:border-r-0"
                 >
-                  <span className="font-mono text-[10px] tracking-[0.16em] text-primary tabular-nums">
+                  <span className="font-mono text-[10px] tracking-[0.16em] text-muted-foreground tabular-nums">
                     {stage.n}
                   </span>
                   <p className="mt-3 text-sm font-semibold tracking-tight">{stage.label}</p>
@@ -512,10 +512,10 @@ export default function Landing() {
 
         {/* ── evidence ─────────────────────────────────────────── */}
         <section id="evidence" className="border-t border-border/70">
-          <div className="mx-auto grid w-full max-w-6xl gap-12 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
+          <div className="mx-auto grid w-full max-w-6xl gap-12 px-5 py-20 sm:px-8 sm:py-28 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
             <motion.div {...fadeUp}>
               <Kicker>Evidence</Kicker>
-              <h2 className="mt-4 text-3xl leading-tight font-semibold tracking-tight text-balance sm:text-4xl">
+              <h2 className="mt-5 text-4xl leading-[1.1] font-semibold tracking-tight text-balance sm:text-5xl">
                 Every finding ships with its proof.
               </h2>
               <p className="mt-5 text-[15px] leading-7 text-muted-foreground text-pretty">
@@ -576,11 +576,11 @@ export default function Landing() {
         <section className="border-t border-border/70">
           <motion.div
             {...fadeUp}
-            className="mx-auto grid w-full max-w-6xl gap-8 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[1.3fr_0.7fr] lg:items-end"
+            className="mx-auto grid w-full max-w-6xl gap-8 px-5 py-20 sm:px-8 sm:py-28 lg:grid-cols-[1.3fr_0.7fr] lg:items-end"
           >
             <div>
               <Kicker>Get started</Kicker>
-              <h2 className="mt-4 text-3xl leading-tight font-semibold tracking-tight text-balance sm:text-4xl">
+              <h2 className="mt-5 text-4xl leading-[1.1] font-semibold tracking-tight text-balance sm:text-5xl">
                 Model the application. Prove the gap.
               </h2>
               <p className="mt-5 max-w-xl text-[15px] leading-7 text-muted-foreground text-pretty">

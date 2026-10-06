@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
-import { Plus, Target, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { EmptyState, PanelHeader, SEVERITY_CLASS, Tag } from "./shared";
 import type { CoverageShape } from "./panels";
 
@@ -64,16 +64,11 @@ export function EngagementsPanel({
               >
                 <CardContent className="space-y-4 px-5 py-5">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                      <div className="flex size-9 items-center justify-center rounded-md border border-border/60 bg-background/50">
-                        <Target className="size-4 text-primary" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">{engagement.name}</p>
-                        <p className="font-mono text-[11px] text-muted-foreground">
-                          {engagement.target}
-                        </p>
-                      </div>
+                    <div>
+                      <p className="text-sm font-medium">{engagement.name}</p>
+                      <p className="font-mono text-[11px] text-muted-foreground">
+                        {engagement.target}
+                      </p>
                     </div>
                     <Tag className={STATUS_CLASS[engagement.status] ?? STATUS_CLASS.draft}>
                       {engagement.status}

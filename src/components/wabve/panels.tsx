@@ -13,12 +13,8 @@ import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
-  Boxes,
   CheckCircle2,
-  Fingerprint,
-  Layers,
   ShieldAlert,
-  Route,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { ArtifactImport, CredentialControl } from "./intake";
@@ -291,14 +287,9 @@ export function IdentitiesPanel({
             <Card key={identity._id} className="border-border/60 bg-card/40 py-0 shadow-none">
               <CardContent className="px-5 py-4">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-9 items-center justify-center rounded-md border border-border/60 bg-background/50">
-                      <Fingerprint className="size-4 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{identity.label}</p>
-                      <p className="font-mono text-[10px] text-muted-foreground">{identity.key}</p>
-                    </div>
+                  <div>
+                    <p className="text-sm font-medium">{identity.label}</p>
+                    <p className="font-mono text-[10px] text-muted-foreground">{identity.key}</p>
                   </div>
                   <Tag
                     className={
@@ -453,9 +444,9 @@ export function AttackSurfacePanel({
         </Card>
       )}
       <div className="grid gap-3 sm:grid-cols-3">
-        <InfoTile icon={<Route className="size-4" />} label="Categories" value={`${new Set(endpoints.map((e) => e.category)).size}`} />
-        <InfoTile icon={<Boxes className="size-4" />} label="Object types" value={`${new Set(endpoints.map((e) => e.objectType).filter(Boolean)).size}`} />
-        <InfoTile icon={<Layers className="size-4" />} label="Out of scope" value={`${endpoints.filter((e) => !e.inScope).length}`} />
+        <InfoTile label="Categories" value={`${new Set(endpoints.map((e) => e.category)).size}`} />
+        <InfoTile label="Object types" value={`${new Set(endpoints.map((e) => e.objectType).filter(Boolean)).size}`} />
+        <InfoTile label="Out of scope" value={`${endpoints.filter((e) => !e.inScope).length}`} />
       </div>
 
       <ObjectRegistry objects={objects} tests={tests} />
@@ -681,19 +672,14 @@ function OutcomeList({
   );
 }
 
-function InfoTile({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+function InfoTile({ label, value }: { label: string; value: string }) {
   return (
     <Card className="border-border/60 bg-card/40 py-0 shadow-none">
-      <CardContent className="flex items-center gap-3 px-5 py-4">
-        <div className="flex size-9 items-center justify-center rounded-md border border-border/60 bg-background/50">
-          {icon}
-        </div>
-        <div>
-          <p className="font-mono text-[10px] tracking-widest text-muted-foreground uppercase">
-            {label}
-          </p>
-          <p className="text-lg font-semibold tabular-nums">{value}</p>
-        </div>
+      <CardContent className="px-5 py-4">
+        <p className="font-mono text-[10px] tracking-widest text-muted-foreground uppercase">
+          {label}
+        </p>
+        <p className="mt-2 text-2xl font-semibold tabular-nums">{value}</p>
       </CardContent>
     </Card>
   );

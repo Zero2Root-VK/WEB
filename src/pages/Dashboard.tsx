@@ -155,9 +155,7 @@ export default function Dashboard() {
       {/* sidebar */}
       <aside className="hidden w-60 shrink-0 flex-col border-r border-border/60 bg-sidebar lg:flex">
         <div className="flex h-14 items-center gap-2.5 border-b border-border/60 px-5">
-          <div className="flex size-8 items-center justify-center rounded-md border border-primary/40 bg-primary/10">
-            <Sigma className="size-4 text-primary" />
-          </div>
+          <Sigma className="size-4 text-primary" aria-hidden />
           <div className="leading-none">
             <span className="font-mono text-sm font-semibold tracking-[0.2em]">WABVE</span>
             <p className="mt-0.5 font-mono text-[9px] tracking-[0.14em] text-muted-foreground uppercase">
@@ -423,7 +421,7 @@ function Onboarding({
   return (
     <div className="mx-auto max-w-3xl py-6">
       <p className="font-mono text-[10px] tracking-[0.24em] text-muted-foreground uppercase">
-        <span className="mr-2 text-primary">/</span>
+        <span className="mr-2 text-foreground/40">/</span>
         No engagements yet
       </p>
       <h1 className="mt-4 text-2xl leading-tight font-semibold tracking-tight text-balance sm:text-3xl">
@@ -456,7 +454,7 @@ function Onboarding({
             key={stage.key}
             className="flex flex-wrap items-baseline gap-x-5 gap-y-1 border-b border-border/70 py-3"
           >
-            <span className="font-mono text-[10px] text-primary tabular-nums">
+            <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
               {String(i + 1).padStart(2, "0")}
             </span>
             <span className="w-28 shrink-0 text-sm font-medium">{stage.label}</span>
