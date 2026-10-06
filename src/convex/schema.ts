@@ -32,12 +32,130 @@ const schema = defineSchema(
       role: v.optional(roleValidator), // role of the user. do not remove
     }).index("email", ["email"]), // index for the email. do not remove or modify
 
-    // add other tables here
+    // ---------------------------------------------------------------------
+    // WABVE — Web Authorization & Business Logic Verification Engine
+    // ---------------------------------------------------------------------
 
-    // tableName: defineTable({
-    //   ...
-    //   // table fields
-    // }).index("by_field", ["field"])
+    // An engagement is one scoped authorization assessment.
+    engagements: defineTable({
+      ownerId: v.id("users"),
+      name: v.string(),
+      target: v.string(),
+      allowedHosts: v.array(v.string()),
+      allowedPaths: v.array(v.string()),
+      rateLimit: v.number(),
+      requestBudget: v.number(),
+      destructiveTesting: v.boolean(),
+      dryRun: v.boolean(),
+      killSwitch: v.boolean(),
+      profile: v.string(),
+      status: v.string(),
+      stage: v.number(),
+      runId: v.optional(v.string()),
+      requestsUsed: v.number(),
+      blockedOutOfScope: v.number(),
+      coverage: v.optional(v.any()),
+      createdAt: v.number(),
+      finishedAt: v.optional(v.number()),
+    }).index("by_owner", ["ownerId"]),
+
+    // One authenticated (or anonymous) actor used to prove authorization rules.
+    identities: defineTable({
+      engagementId: v.id("engagements"),
+      key: v.string(),
+      label: v.string(),
+      role: v.string(),
+      tenant: v.string(),
+      authMethod: v.string(),
+      status: v.string(),
+      secretHint: v.optional(v.string()),
+      lastVerifiedAt: v.optional(v.number()),
+    }).index("by_engagement", ["engagementId"]),
+
+    // Unified endpoint registry built by the discovery stage.
+    endpoints: defineTable({
+      engagementId: v.id("engagements"),
+      key: v.string(),
+      method: v.string(),
+      path: v.string(),
+      parameters: v.array(v.string()),
+      authRequired: v.boolean(),
+      rolesObserved: v.array(v.string()),
+      objectType: v.optional(v.string()),
+      category: v.string(),
+      risk: v.string(),
+      discoveredVia: v.string(),
+      inScope: v.boolean(),
+      summary: v.string(),
+    }).index("by_engagement", ["engagementId"]),
+
+    // One authorization / business-logic probe and its differential verdict.
+    tests: defineTable({
+      engagementId: v.id("engagements"),
+      endpointKey: v.string(),
+      method: v.string(),
+      path: v.string(),
+      category: v.string(),
+      probe: v.string(),
+      actorKey: v.string(),
+      actorLabel: v.string(),
+      victimKey: v.optional(v.string()),
+      victimLabel: v.optional(v.string()),
+      objectRef: v.optional(v.string()),
+      parameter: v.optional(v.string()),
+      expectation: v.string(),
+      actual: v.string(),
+      outcome: v.string(),
+      risk: v.string(),
+      statusCode: v.number(),
+      signals: v.array(v.string()),
+      confidence: v.number(),
+      request: v.string(),
+      response: v.string(),
+      beforeState: v.optional(v.any()),
+      afterState: v.optional(v.any()),
+      stateDelta: v.optional(v.any()),
+      createdAt: v.number(),
+    }).index("by_engagement", ["engagementId"]),
+
+    // A confirmed / likely authorization finding with full evidence.
+    findings: defineTable({
+      engagementId: v.id("engagements"),
+      code: v.string(),
+      title: v.string(),
+      severity: v.string(),
+      confidence: v.string(),
+      score: v.number(),
+      classification: v.string(),
+      cwe: v.string(),
+      owasp: v.string(),
+      endpoint: v.string(),
+      parameter: v.optional(v.string()),
+      attacker: v.string(),
+      victim: v.optional(v.string()),
+      probe: v.string(),
+      expected: v.string(),
+      actual: v.string(),
+      request: v.string(),
+      response: v.string(),
+      beforeState: v.optional(v.any()),
+      afterState: v.optional(v.any()),
+      stateDelta: v.optional(v.any()),
+      signals: v.array(v.string()),
+      reproduction: v.array(v.string()),
+      impact: v.string(),
+      remediation: v.string(),
+      createdAt: v.number(),
+    }).index("by_engagement", ["engagementId"]),
+
+    // Audit log + live console stream.
+    events: defineTable({
+      engagementId: v.id("engagements"),
+      ts: v.number(),
+      level: v.string(),
+      phase: v.string(),
+      message: v.string(),
+    }).index("by_engagement", ["engagementId"]),
   },
   {
     schemaValidation: false,
