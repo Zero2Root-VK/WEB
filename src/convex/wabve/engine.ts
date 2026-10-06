@@ -10,6 +10,7 @@
 
 import type { LabActor, LabDefinition, LabEndpoint, LabObject } from "./lab";
 import { actualDecision, applyEffect, buildLab, referenceDecision } from "./lab";
+import { pathAllowed } from "../real/engine";
 
 export interface ScopeConfig {
   target: string;
@@ -169,9 +170,16 @@ export function discover(scope: ScopeConfig, lab: LabDefinition): EndpointRow[] 
   });
 }
 
+/**
+ * Scope predicate for demo mode.
+ *
+ * Delegates to the live engine's `pathAllowed` so an allowlist means exactly
+ * the same thing in both modes. A bare prefix test would let `/api` silently
+ * permit `/apixyz` here while the live guard refused it, and the two modes are
+ * meant to render identically.
+ */
 export function isInScope(scope: ScopeConfig, path: string): boolean {
-  if (scope.allowedPaths.length === 0) return true;
-  return scope.allowedPaths.some((prefix) => path.startsWith(prefix));
+  return pathAllowed(path, scope.allowedPaths);
 }
 
 /**

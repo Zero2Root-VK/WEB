@@ -40,7 +40,10 @@ in memory for a single dispatch.
 
 ## Commands
 
-- `bun test` — unit tests for the engine, discovery, executor, suite, secrets, reporting and runplan
+- `bun test` (`bun test src/convex`) — unit tests for the engine, discovery, executor, suite, secrets,
+  reporting, runplan and the demo-mode pipeline, plus two suites that go beyond units: an end-to-end
+  run against a real HTTP socket (`integration.test.ts`) and an adversarial suite that tries to escape
+  the scope guard and asserts nothing out of scope ever reaches the target (`scope-escape.test.ts`).
 - `bun run demo:live` — runs a complete live assessment end to end against a self-hosted,
   deliberately vulnerable two-tenant API and writes `wabve-reports/wabve-live-report.{json,md}`.
   The target is created by the script itself, so the demonstration is authorised by construction.

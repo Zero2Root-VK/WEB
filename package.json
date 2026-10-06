@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "test": "bun test src/convex/real",
+    "test": "bun test src/convex",
     "demo:live": "bun run src/scripts/live-assessment.ts",
     "typecheck": "tsc -b --noEmit",
     "format": "prettier --write .",
