@@ -55,6 +55,12 @@ async function clearRun(ctx: MutationCtx, engagementId: Id<"engagements">) {
     .collect()) {
     await ctx.db.delete(row._id);
   }
+  for (const row of await ctx.db
+    .query("objects")
+    .withIndex("by_engagement", (q) => q.eq("engagementId", engagementId))
+    .collect()) {
+    await ctx.db.delete(row._id);
+  }
 }
 
 async function scheduleStage(
@@ -111,6 +117,20 @@ export const listEndpoints = query({
     if (!engagement || engagement.ownerId !== userId) return [];
     return await ctx.db
       .query("endpoints")
+      .withIndex("by_engagement", (q) => q.eq("engagementId", engagementId))
+      .collect();
+  },
+});
+
+export const listObjects = query({
+  args: { engagementId: v.id("engagements") },
+  handler: async (ctx, { engagementId }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+    const engagement = await ctx.db.get(engagementId);
+    if (!engagement || engagement.ownerId !== userId) return [];
+    return await ctx.db
+      .query("objects")
       .withIndex("by_engagement", (q) => q.eq("engagementId", engagementId))
       .collect();
   },
@@ -369,10 +389,23 @@ export const runStage = internalMutation({
 
     if (stage === 3) {
       const lab = buildLab();
+      const objects = engine.identifyObjects(lab);
+      for (const object of objects) {
+        await ctx.db.insert("objects", { engagementId, ...object });
+      }
       const byType = new Map<string, number>();
-      for (const obj of lab.objects) byType.set(obj.type, (byType.get(obj.type) ?? 0) + 1);
-      await log(ctx, engagementId, "INFO", "model", `Application model built — ${lab.objects.length} objects across ${byType.size} entity types`);
+      for (const obj of objects) byType.set(obj.type, (byType.get(obj.type) ?? 0) + 1);
+      await log(ctx, engagementId, "INFO", "model", `Application model built — ${objects.length} objects across ${byType.size} entity types`);
       await log(ctx, engagementId, "INFO", "model", `Entities: ${Array.from(byType.entries()).map(([t, n]) => `${t}×${n}`).join(", ")}`);
+      for (const object of objects.slice(0, 6)) {
+        await log(
+          ctx,
+          engagementId,
+          "INFO",
+          "model",
+          `Object ${object.key} — owner ${object.ownerLabel ?? "unowned"}, tenant ${object.tenant}, classification ${object.classification}`,
+        );
+      }
       await log(ctx, engagementId, "INFO", "model", `Roles inferred: ${Array.from(new Set(lab.actors.map((a) => a.role))).join(", ")}`);
     }
 
@@ -454,11 +487,16 @@ export const runStage = internalMutation({
         .query("findings")
         .withIndex("by_engagement", (q) => q.eq("engagementId", engagementId))
         .collect();
+      const objects = await ctx.db
+        .query("objects")
+        .withIndex("by_engagement", (q) => q.eq("engagementId", engagementId))
+        .collect();
       const coverage = engine.buildCoverage(
         endpoints as engine.EndpointRow[],
         tests as engine.TestRow[],
         findings,
         scope,
+        objects,
       );
       await ctx.db.patch(engagementId, {
         status: "complete",

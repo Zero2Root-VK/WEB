@@ -13,6 +13,7 @@ type Test = Doc<"tests">;
 type Endpoint = Doc<"endpoints">;
 type Identity = Doc<"identities">;
 type Event = Doc<"events">;
+type LabObject = Doc<"objects">;
 
 interface ReportInput {
   engagement: Engagement;
@@ -20,6 +21,7 @@ interface ReportInput {
   tests: Test[];
   endpoints: Endpoint[];
   identities: Identity[];
+  objects: LabObject[];
   events: Event[];
 }
 
@@ -28,7 +30,7 @@ function severityRank(severity: string): number {
 }
 
 function buildJson(input: ReportInput) {
-  const { engagement, findings, tests, endpoints, identities } = input;
+  const { engagement, findings, tests, endpoints, identities, objects } = input;
   return {
     report: "WABVE Authorization & Business Logic Verification Report",
     generatedAt: new Date().toISOString(),
@@ -61,6 +63,15 @@ function buildJson(input: ReportInput) {
       tenant: identity.tenant,
       authMethod: identity.authMethod,
       status: identity.status,
+    })),
+    objectRegistry: objects.map((object) => ({
+      identifier: object.key,
+      type: object.type,
+      ref: object.ref,
+      owner: object.owner ?? null,
+      ownerLabel: object.ownerLabel ?? null,
+      tenant: object.tenant,
+      classification: object.classification,
     })),
     attackSurface: endpoints.map((endpoint) => ({
       method: endpoint.method,
@@ -119,7 +130,7 @@ function buildJson(input: ReportInput) {
 }
 
 function buildMarkdown(input: ReportInput): string {
-  const { engagement, findings, tests, endpoints, identities } = input;
+  const { engagement, findings, tests, endpoints, identities, objects } = input;
   const coverage = engagement.coverage as Record<string, number> | undefined;
   const lines: string[] = [];
   lines.push(`# WABVE Report — ${engagement.name}`);
@@ -143,6 +154,16 @@ function buildMarkdown(input: ReportInput): string {
   for (const identity of identities) {
     lines.push(
       `| ${identity.label} | ${identity.role} | ${identity.tenant} | ${identity.authMethod} | ${identity.status} |`,
+    );
+  }
+  lines.push("");
+  lines.push("## Object registry");
+  lines.push("");
+  lines.push("| Identifier | Type | Owner | Tenant | Classification |");
+  lines.push("| --- | --- | --- | --- | --- |");
+  for (const object of objects) {
+    lines.push(
+      `| ${object.key} | ${object.type} | ${object.ownerLabel ?? "unowned"} | ${object.tenant} | ${object.classification} |`,
     );
   }
   lines.push("");
@@ -320,7 +341,7 @@ function buildSarif(findings: Finding[]): string {
 }
 
 function buildHtml(input: ReportInput): string {
-  const { engagement, findings, endpoints, identities } = input;
+  const { engagement, findings, endpoints, identities, objects } = input;
   const coverage = engagement.coverage as Record<string, number> | undefined;
   const rows = findings
     .map(
@@ -386,6 +407,16 @@ function buildHtml(input: ReportInput): string {
     .map(
       (i) =>
         `<tr><td>${escapeHtml(i.label)}</td><td>${escapeHtml(i.role)}</td><td>${escapeHtml(i.tenant)}</td><td>${escapeHtml(i.authMethod)}</td><td>${escapeHtml(i.status)}</td></tr>`,
+    )
+    .join("")}
+  </table>
+
+  <h2>Object registry</h2>
+  <table><tr><th>Identifier</th><th>Type</th><th>Owner</th><th>Tenant</th><th>Classification</th></tr>
+  ${objects
+    .map(
+      (o) =>
+        `<tr><td>${escapeHtml(o.key)}</td><td>${escapeHtml(o.type)}</td><td>${escapeHtml(o.ownerLabel ?? "unowned")}</td><td>${escapeHtml(o.tenant)}</td><td>${escapeHtml(o.classification)}</td></tr>`,
     )
     .join("")}
   </table>

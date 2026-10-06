@@ -89,6 +89,20 @@ const schema = defineSchema(
       summary: v.string(),
     }).index("by_engagement", ["engagementId"]),
 
+    // Resources the application operates on, with the owning identity. Every
+    // cross-identity probe is attributed to one of these object identifiers.
+    objects: defineTable({
+      engagementId: v.id("engagements"),
+      key: v.string(),
+      type: v.string(),
+      ref: v.string(),
+      label: v.string(),
+      owner: v.optional(v.string()),
+      ownerLabel: v.optional(v.string()),
+      tenant: v.string(),
+      classification: v.string(),
+    }).index("by_engagement", ["engagementId"]),
+
     // One authorization / business-logic probe and its differential verdict.
     tests: defineTable({
       engagementId: v.id("engagements"),

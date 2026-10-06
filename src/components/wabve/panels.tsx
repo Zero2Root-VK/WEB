@@ -56,6 +56,7 @@ export interface CoverageShape {
   requestsUsed: number;
   requestBudget: number;
   safetyBlocks: number;
+  dryRun: boolean;
 }
 
 export function readCoverage(engagement: Doc<"engagements">): CoverageShape | null {
@@ -330,9 +331,11 @@ export function IdentitiesPanel({ identities }: { identities: Doc<"identities">[
 export function AttackSurfacePanel({
   endpoints,
   tests,
+  objects,
 }: {
   endpoints: Doc<"endpoints">[];
   tests: Doc<"tests">[];
+  objects: Doc<"objects">[];
 }) {
   const failsByEndpoint = new Map<string, number>();
   for (const test of tests) {
@@ -427,6 +430,91 @@ export function AttackSurfacePanel({
         <InfoTile icon={<Boxes className="size-4" />} label="Object types" value={`${new Set(endpoints.map((e) => e.objectType).filter(Boolean)).size}`} />
         <InfoTile icon={<Layers className="size-4" />} label="Out of scope" value={`${endpoints.filter((e) => !e.inScope).length}`} />
       </div>
+
+      <ObjectRegistry objects={objects} tests={tests} />
+    </div>
+  );
+}
+
+/** Identified resource identifiers with their owning identity (AC-05). */
+function ObjectRegistry({
+  objects,
+  tests,
+}: {
+  objects: Doc<"objects">[];
+  tests: Doc<"tests">[];
+}) {
+  return (
+    <div className="space-y-3">
+      <PanelHeader
+        title="Object registry"
+        description="Every resource the engine identified, with the identity that owns it. Cross-identity probes are attributed to these identifiers rather than to raw numbers."
+      />
+      {objects.length === 0 ? (
+        <EmptyState
+          title="No objects identified yet"
+          description="The object registry is populated by the modelling stage."
+        />
+      ) : (
+        <Card className="border-border/60 bg-card/40 py-0 shadow-none">
+          <CardContent className="px-0 py-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="pl-5">Identifier</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Owner</TableHead>
+                  <TableHead>Tenant</TableHead>
+                  <TableHead>Classification</TableHead>
+                  <TableHead className="pr-5 text-right">Violations</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {objects.map((object) => {
+                  const violations = tests.filter(
+                    (t) => t.objectRef === object.ref && t.outcome === "fail",
+                  ).length;
+                  return (
+                    <TableRow key={object._id}>
+                      <TableCell className="pl-5 font-mono text-xs">{object.key}</TableCell>
+                      <TableCell className="font-mono text-[11px] text-muted-foreground">
+                        {object.type}
+                      </TableCell>
+                      <TableCell className="font-mono text-[11px]">
+                        {object.ownerLabel ?? (
+                          <span className="text-muted-foreground">unowned</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="font-mono text-[11px] text-muted-foreground">
+                        {object.tenant}
+                      </TableCell>
+                      <TableCell>
+                        <Tag
+                          className={
+                            object.classification === "confidential" ||
+                            object.classification === "restricted"
+                              ? "border-red-500/40 text-red-300"
+                              : "border-border/60 text-muted-foreground"
+                          }
+                        >
+                          {object.classification}
+                        </Tag>
+                      </TableCell>
+                      <TableCell className="pr-5 text-right">
+                        {violations > 0 ? (
+                          <span className="font-mono text-xs text-red-400">{violations}</span>
+                        ) : (
+                          <span className="font-mono text-xs text-muted-foreground">0</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

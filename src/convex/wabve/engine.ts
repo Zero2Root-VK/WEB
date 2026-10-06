@@ -43,6 +43,18 @@ export interface DeltaEntry {
   after: unknown;
 }
 
+/** A resource the engine identified during the modelling stage (AC-05). */
+export interface ObjectRow {
+  key: string;
+  type: string;
+  ref: string;
+  label: string;
+  owner?: string;
+  ownerLabel?: string;
+  tenant: string;
+  classification: string;
+}
+
 export interface TestRow {
   endpointKey: string;
   method: string;
@@ -110,6 +122,7 @@ export interface Coverage {
   requestsUsed: number;
   requestBudget: number;
   safetyBlocks: number;
+  dryRun: boolean;
 }
 
 const DEFAULT_OWASP: Record<string, string> = {
@@ -159,6 +172,28 @@ export function discover(scope: ScopeConfig, lab: LabDefinition): EndpointRow[] 
 export function isInScope(scope: ScopeConfig, path: string): boolean {
   if (scope.allowedPaths.length === 0) return true;
   return scope.allowedPaths.some((prefix) => path.startsWith(prefix));
+}
+
+/**
+ * Identify the resources the application operates on, together with the
+ * identity that owns each one. Object identifiers are the prerequisite for
+ * every cross-identity probe.
+ */
+export function identifyObjects(lab: LabDefinition): ObjectRow[] {
+  return lab.objects.map((obj) => {
+    const owner = obj.owner ? lab.actors.find((a) => a.key === obj.owner) : undefined;
+    const classification = obj.state.classification;
+    return {
+      key: `${obj.type}:${obj.ref}`,
+      type: obj.type,
+      ref: obj.ref,
+      label: `${obj.type} ${obj.ref}`,
+      ...(obj.owner ? { owner: obj.owner } : {}),
+      ...(owner ? { ownerLabel: owner.label } : {}),
+      tenant: obj.tenant,
+      classification: typeof classification === "string" ? classification : "standard",
+    };
+  });
 }
 
 function findObject(
@@ -748,11 +783,14 @@ export function execute(scope: ScopeConfig, probes: Probe[]): TestRow[] {
     const reference = referenceDecision(ep, who, obj);
     const actual = actualDecision(ep, who, obj);
     const before = snapshot(obj);
+    const projected = scope.dryRun && obj ? { ...obj, state: { ...obj.state } } : obj;
 
     if (actual.allow) {
-      applyEffect(ep, obj, who, probe.body);
+      // Dry-run computes what the request would change without applying it, so
+      // no probe can mutate the target while the operator is still reviewing.
+      applyEffect(ep, projected, who, probe.body);
     }
-    const after = snapshot(obj);
+    const after = snapshot(projected);
     const delta = diff(before, after);
 
     const signals: string[] = [];
@@ -771,6 +809,7 @@ export function execute(scope: ScopeConfig, probes: Probe[]): TestRow[] {
       if (delta.some((d) => d.field === "deleted" && d.after === true)) {
         signals.push("destructive_effect");
       }
+      if (scope.dryRun && delta.length > 0) signals.push("dry_run_projected");
       signals.push("differential_confirmed", "reproducible");
     } else if (reference.allow && actual.allow) {
       const protectedChange = (probe.protectedFields ?? []).filter((f) =>
@@ -786,6 +825,7 @@ export function execute(scope: ScopeConfig, probes: Probe[]): TestRow[] {
           "differential_confirmed",
           "reproducible",
         );
+        if (scope.dryRun) signals.push("dry_run_projected");
       }
     } else if (reference.allow && !actual.allow) {
       outcome = "inconclusive";
@@ -915,18 +955,19 @@ export function buildCoverage(
   tests: TestRow[],
   findings: FindingDraft[],
   scope: ScopeConfig,
+  objects: ObjectRow[] = [],
 ): Coverage {
   const blockedOutOfScope = endpoints.filter((e) => !e.inScope).length;
-  const objects = new Set(tests.map((t) => t.objectRef).filter(Boolean)).size;
-  const roles = new Set(tests.map((t) => t.actorKey)).size;
+  const roleCount = new Set(tests.map((t) => t.actorKey)).size;
   const failed = tests.filter((t) => t.outcome === "fail").length;
   return {
     endpointsDiscovered: endpoints.length,
     endpointsInScope: endpoints.filter((e) => e.inScope).length,
     blockedOutOfScope,
     authenticatedEndpoints: endpoints.filter((e) => e.authRequired).length,
-    objectsIdentified: objects,
-    rolesIdentified: roles,
+    objectsIdentified: objects.length,
+    rolesIdentified: roleCount,
+    dryRun: scope.dryRun,
     authorizationTests: tests.filter((t) => t.category !== "business").length,
     businessLogicTests: tests.filter((t) => t.category === "business").length,
     totalTests: tests.length,

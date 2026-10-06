@@ -100,6 +100,7 @@ export default function Dashboard() {
     api.wabve.listEndpoints,
     selectedId ? { engagementId: selectedId } : "skip",
   );
+  const objects = useQuery(api.wabve.listObjects, selectedId ? { engagementId: selectedId } : "skip");
   const tests = useQuery(api.wabve.listTests, selectedId ? { engagementId: selectedId } : "skip");
   const findings = useQuery(
     api.wabve.listFindings,
@@ -345,7 +346,11 @@ export default function Dashboard() {
               ) : null}
               {section === "identities" ? <IdentitiesPanel identities={identities ?? []} /> : null}
               {section === "surface" ? (
-                <AttackSurfacePanel endpoints={endpoints ?? []} tests={tests ?? []} />
+                <AttackSurfacePanel
+                  endpoints={endpoints ?? []}
+                  tests={tests ?? []}
+                  objects={objects ?? []}
+                />
               ) : null}
               {section === "authz" ? (
                 <AuthzGraph tests={tests ?? []} endpoints={endpoints ?? []} />
@@ -367,6 +372,7 @@ export default function Dashboard() {
                   tests={tests ?? []}
                   endpoints={endpoints ?? []}
                   identities={identities ?? []}
+                  objects={objects ?? []}
                   events={events ?? []}
                 />
               ) : null}

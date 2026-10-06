@@ -1,7 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
-import { EmptyState, PanelHeader, Tag } from "./shared";
+import { ArrowDown, Zap } from "lucide-react";
+import { EmptyState, PanelHeader, SEVERITY_CLASS, Tag } from "./shared";
 
 interface DeltaEntry {
   field: string;
@@ -112,6 +113,8 @@ export function AuthzGraph({
         }
       />
 
+      <AttackPaths tests={tests} />
+
       <Card className="border-border/60 bg-card/40 py-0 shadow-none">
         <CardContent className="px-3 py-4">
           <svg
@@ -219,6 +222,115 @@ export function AuthzGraph({
           </svg>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+const ACTION_LABEL: Record<string, string> = {
+  disclose: "Object disclosed",
+  modify: "State modified",
+  destroy: "Record destroyed",
+};
+
+/**
+ * Chain the confirmed violations that land on the same object into the
+ * disclosure -> modification -> destruction path a tester actually reports.
+ */
+export function AttackPaths({ tests }: { tests: Doc<"tests">[] }) {
+  const failing = tests.filter((t) => t.outcome === "fail");
+  const groups = new Map<string, Doc<"tests">[]>();
+  for (const test of failing) {
+    const key = test.objectRef ? `${test.path.split("/").filter(Boolean)[1] ?? "object"} ${test.objectRef}` : test.path;
+    const list = groups.get(key) ?? [];
+    list.push(test);
+    groups.set(key, list);
+  }
+
+  const paths = Array.from(groups.entries())
+    .map(([object, group]) => {
+      const steps = new Map<string, { action: string; test: Doc<"tests"> }>();
+      for (const test of group) {
+        const action = test.method === "GET"
+          ? "disclose"
+          : test.signals.includes("destructive_effect")
+            ? "destroy"
+            : "modify";
+        if (!steps.has(action)) steps.set(action, { action, test });
+      }
+      const ordered = ["disclose", "modify", "destroy"]
+        .filter((action) => steps.has(action))
+        .map((action) => steps.get(action) as { action: string; test: Doc<"tests"> });
+      return { object, steps: ordered, victim: group.find((t) => t.victimLabel)?.victimLabel };
+    })
+    .filter((path) => path.steps.length > 0)
+    .sort((a, b) => b.steps.length - a.steps.length);
+
+  if (paths.length === 0) return null;
+
+  return (
+    <div className="space-y-3">
+      <PanelHeader
+        title="Attack paths"
+        description="Confirmed violations chained per object. A path that escalates from disclosure to modification is materially more severe than a single probe, which is what a tester needs to report."
+      />
+      <div className="grid gap-3 lg:grid-cols-2">
+        {paths.map((path) => {
+          const weakest = path.steps[path.steps.length - 1].test;
+          // Chain length drives severity: escalation from disclosure to
+          // modification is materially worse than a single read.
+          const severity =
+            path.steps.length >= 3
+              ? "critical"
+              : path.steps.length === 2
+                ? "high"
+                : weakest.risk;
+          return (
+            <Card key={path.object} className="border-border/60 bg-card/40 py-0 shadow-none">
+              <CardHeader className="flex-row items-center justify-between gap-2 px-5 py-4">
+                <CardTitle className="flex items-center gap-2 font-mono text-xs tracking-wide">
+                  <Zap className="size-3.5 text-primary" />
+                  {path.object}
+                </CardTitle>
+                <Tag className={SEVERITY_CLASS[severity]}>{severity}</Tag>
+              </CardHeader>
+              <CardContent className="px-5 pb-5">
+                <div className="space-y-1.5">
+                  {path.steps.map((step, index) => (
+                    <div key={step.action}>
+                      <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-mono text-[11px] text-foreground/85">
+                            {step.test.actorLabel} → {step.test.method} {step.test.path}
+                          </span>
+                          <Tag className="border-red-500/40 text-red-300">
+                            {ACTION_LABEL[step.action]}
+                          </Tag>
+                        </div>
+                        {step.test.stateDelta ? (
+                          <p className="mt-1 font-mono text-[10px] text-amber-300">
+                            {(step.test.stateDelta as Array<{ field: string; before: unknown; after: unknown }>)
+                              .map((d) => `${d.field}: ${String(d.before)} → ${String(d.after)}`)
+                              .join("  ·  ")}
+                          </p>
+                        ) : null}
+                      </div>
+                      {index < path.steps.length - 1 ? (
+                        <div className="flex justify-center py-1">
+                          <ArrowDown className="size-3 text-red-400" />
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-3 font-mono text-[10px] text-muted-foreground">
+                  {path.steps.length} confirmed step(s) on this object
+                  {path.victim ? ` · victim ${path.victim}` : ""}
+                </p>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
     </div>
   );
 }

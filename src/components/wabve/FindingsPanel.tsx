@@ -163,9 +163,14 @@ export function FindingsPanel({ findings }: { findings: Doc<"findings">[] }) {
 
               {delta.length > 0 ? (
                 <div>
-                  <p className="mb-2 flex items-center gap-2 font-mono text-[10px] tracking-widest text-muted-foreground uppercase">
+                  <p className="mb-2 flex flex-wrap items-center gap-2 font-mono text-[10px] tracking-widest text-muted-foreground uppercase">
                     <ShieldAlert className="size-3.5 text-red-400" />
                     state delta — the evidence
+                    {selected.signals.includes("dry_run_projected") ? (
+                      <Tag className="border-amber-500/40 text-amber-300">
+                        projected · dry run, not applied
+                      </Tag>
+                    ) : null}
                   </p>
                   <div className="overflow-hidden rounded-md border border-red-500/25">
                     {delta.map((entry) => (
