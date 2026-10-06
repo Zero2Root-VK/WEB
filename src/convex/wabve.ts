@@ -195,6 +195,8 @@ export const createEngagement = mutation({
     destructiveTesting: v.boolean(),
     dryRun: v.boolean(),
     profile: v.string(),
+    /** "live" runs the real network engine, "demo" runs the modelled lab. */
+    mode: v.optional(v.string()),
     identities: v.array(
       v.object({
         key: v.string(),
@@ -222,6 +224,7 @@ export const createEngagement = mutation({
       dryRun: args.dryRun,
       killSwitch: false,
       profile: args.profile,
+      mode: args.mode ?? "live",
       status: "draft",
       stage: -1,
       requestsUsed: 0,
@@ -268,7 +271,22 @@ export const startEngagement = mutation({
       ...(destructiveTesting !== undefined ? { destructiveTesting } : {}),
     });
     await log(ctx, engagementId, "INFO", "engine", "Verification engine started");
-    await scheduleStage(ctx, engagementId, 0, runId);
+
+    // Demo engagements run the modelled lab in-process; live engagements are
+    // handed to the Node runner, which performs real, scope-guarded requests.
+    if ((engagement.mode ?? "live") === "demo") {
+      await log(
+        ctx,
+        engagementId,
+        "INFO",
+        "engine",
+        "Demo mode: modelled target — no outbound network traffic",
+      );
+      await scheduleStage(ctx, engagementId, 0, runId);
+      return;
+    }
+    await log(ctx, engagementId, "INFO", "engine", "Live mode: outbound requests stay inside the declared allowlist");
+    await ctx.scheduler.runAfter(0, internal.runner.discover, { engagementId, runId });
   },
 });
 
@@ -304,7 +322,55 @@ export const deleteEngagement = mutation({
       .collect()) {
       await ctx.db.delete(identity._id);
     }
+    for (const row of await ctx.db
+      .query("identityCredentials")
+      .withIndex("by_engagement", (q) => q.eq("engagementId", engagementId))
+      .collect()) {
+      await ctx.db.delete(row._id);
+    }
     await ctx.db.delete(engagementId);
+  },
+});
+
+/**
+ * Persists an already-encrypted credential. This deliberately does not touch
+ * key material: encryption happens in the Node action, so the ciphertext is
+ * all this default-runtime mutation ever sees.
+ */
+export const storeIdentityCredential = internalMutation({
+  args: {
+    engagementId: v.id("engagements"),
+    identityKey: v.string(),
+    authType: v.string(),
+    ciphertext: v.string(),
+    mask: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("identityCredentials")
+      .withIndex("by_identity", (q) =>
+        q.eq("engagementId", args.engagementId).eq("identityKey", args.identityKey),
+      )
+      .collect();
+    const now = Date.now();
+    for (const row of existing) {
+      await ctx.db.patch(row._id, {
+        authType: args.authType,
+        ciphertext: args.ciphertext,
+        mask: args.mask,
+        updatedAt: now,
+      });
+    }
+    if (existing.length === 0) {
+      await ctx.db.insert("identityCredentials", {
+        engagementId: args.engagementId,
+        identityKey: args.identityKey,
+        authType: args.authType,
+        ciphertext: args.ciphertext,
+        mask: args.mask,
+        updatedAt: now,
+      });
+    }
   },
 });
 

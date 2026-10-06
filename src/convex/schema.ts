@@ -49,6 +49,8 @@ const schema = defineSchema(
       dryRun: v.boolean(),
       killSwitch: v.boolean(),
       profile: v.string(),
+      // "live" runs the real network engine; "demo" runs the modelled lab.
+      mode: v.optional(v.string()),
       status: v.string(),
       stage: v.number(),
       runId: v.optional(v.string()),
@@ -88,6 +90,19 @@ const schema = defineSchema(
       inScope: v.boolean(),
       summary: v.string(),
     }).index("by_engagement", ["engagementId"]),
+
+    // Encrypted identity credentials. Deliberately has NO query attached — no
+    // frontend request can return these documents. Only the execution path
+    // reads them, inside a Node action that decrypts in memory.
+    identityCredentials: defineTable({
+      engagementId: v.id("engagements"),
+      identityKey: v.string(),
+      authType: v.string(),
+      ciphertext: v.string(),
+      mask: v.string(),
+      updatedAt: v.number(),
+    }).index("by_engagement", ["engagementId"])
+      .index("by_identity", ["engagementId", "identityKey"]),
 
     // Resources the application operates on, with the owning identity. Every
     // cross-identity probe is attributed to one of these object identifiers.
@@ -162,6 +177,26 @@ const schema = defineSchema(
       createdAt: v.number(),
     }).index("by_engagement", ["engagementId"]),
 
+    // Imported discovery artefacts (OpenAPI, HAR, JS bundle, HTML, manual).
+    // Parsed at import time: only the extracted endpoint registry is stored,
+    // never the raw dump, so a customer's API description does not accumulate
+    // in our database.
+    artifacts: defineTable({
+      engagementId: v.id("engagements"),
+      kind: v.string(),
+      name: v.string(),
+      baseUrl: v.optional(v.string()),
+      endpoints: v.array(
+        v.object({
+          method: v.string(),
+          path: v.string(),
+          parameters: v.array(v.string()),
+          source: v.string(),
+        }),
+      ),
+      createdAt: v.number(),
+    }).index("by_engagement", ["engagementId"]),
+
     // Audit log + live console stream.
     events: defineTable({
       engagementId: v.id("engagements"),
@@ -172,7 +207,8 @@ const schema = defineSchema(
     }).index("by_engagement", ["engagementId"]),
   },
   {
-    schemaValidation: false,
+    // Production posture: every write is validated against the schema.
+    schemaValidation: true,
   },
 );
 
