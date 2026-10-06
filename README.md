@@ -29,6 +29,7 @@ explicit approval, and dry-run withholds every mutating request.
   - `suite.ts` — cross-identity probe planning and execution (baseline → attack → owner re-read)
   - `secrets.ts` — AES-256-GCM + HKDF credential encryption
   - `reporting.ts` — evidence → rows/coverage mapping (category, CWE, OWASP, severity)
+  - `runplan.ts` — scope projection, profile budgets, endpoint categorisation
 - `src/convex/runner.ts` — Node action chain: discover → model → probe (chunked) → report
 - `src/convex/pipeline.ts` — the internal data plane the runner reads/writes through (unreachable from browsers)
 - `src/convex/wabve.ts` — public queries/mutations plus the demo-lab pipeline
@@ -39,9 +40,18 @@ in memory for a single dispatch.
 
 ## Commands
 
-- `bun test` — unit tests for the engine, discovery, executor, suite, secrets and reporting
+- `bun test` — unit tests for the engine, discovery, executor, suite, secrets, reporting and runplan
 - `bun run typecheck` — `tsc -b --noEmit`
 - `bunx convex dev --once` — codegen + push to the dev deployment
+
+The suite is not limited to mocks. `src/convex/real/integration.test.ts` binds a
+real two-tenant API to a real socket and drives the real pipeline end to end:
+discovery (OpenAPI + HTML over HTTP), object attribution from live responses,
+then the cross-identity differential probe through the real dispatcher, scope
+guard and rate limiter. It asserts that the IDOR is confirmed, that the secure
+endpoint is cleared, that a live `200` with no corroborating payload is *not*
+reported, that an out-of-scope path never reaches the target, and that no
+credential appears in the results.
 
 ## Environment variables
 

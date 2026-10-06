@@ -34,6 +34,14 @@ import {
   type DiscoveredEndpoint,
 } from "./real/discovery";
 import { dispatch, fetchDocument, type RateState, type RealIdentity } from "./real/executor";
+import {
+  categoryForPath,
+  crawlLimit,
+  objectTypeFor,
+  originOf,
+  scopeFrom,
+  specLimit,
+} from "./real/runplan";
 import { decryptSecret, requireSecretKey } from "./real/secrets";
 import {
   executeSuite,
@@ -81,29 +89,6 @@ async function loadRun(ctx: ActionCtx, args: RunArgs, opts: { lenient?: boolean 
   if (engagement.runId !== args.runId) return null;
   if (!opts.lenient && engagement.status !== "running") return null;
   return data;
-}
-
-function scopeFrom(engagement: Loaded["engagement"]): ScopeConfig {
-  return {
-    target: engagement.target,
-    allowedHosts: engagement.allowedHosts,
-    allowedPaths: engagement.allowedPaths,
-    rateLimit: engagement.rateLimit,
-    requestBudget: engagement.requestBudget,
-    killSwitch: engagement.killSwitch,
-    destructiveTesting: engagement.destructiveTesting,
-    dryRun: engagement.dryRun,
-  };
-}
-
-function originOf(target: string): string | null {
-  try {
-    const url = new URL(target);
-    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
-    return url.origin;
-  } catch {
-    return null;
-  }
 }
 
 function rateStateFor(scope: ScopeConfig): RateState {
@@ -202,36 +187,11 @@ async function loadIdentities(
   return { identities, skipped };
 }
 
-function crawlLimit(profile: string): number {
-  if (profile === "quick") return 6;
-  if (profile === "deep") return 30;
-  return 15;
-}
-
-function specLimit(profile: string): number {
-  return profile === "quick" ? 2 : 5;
-}
-
-function categoryForPath(path: string, method: string): string {
-  if (/^\/(?:admin|manage|internal|debug|console|backoffice)(?:\/|$)/i.test(path)) return "bfla";
-  if (/\/(?:auth|login|session|token|oauth|sso)(?:\/|$)/i.test(path)) return "session";
-  if (/\/(?:coupon|refund|checkout|promotion|redeem|payment)(?:\/|$)/i.test(path)) return "business";
-  if (path.includes("{") || method !== "GET") return "authorization";
-  return "authorization";
-}
-
-function objectTypeFor(path: string): string | null {
-  const match = /\{(\w+_id)\}/.exec(path);
-  if (match) return match[1].replace(/_id$/, "");
-  if (/\{\w+\}/.test(path)) return null;
-  return null;
-}
-
 function endpointRowFor(ep: DiscoveredEndpoint, scope: ScopeConfig, base: string) {
   const method = ep.method.toUpperCase();
   const parameters = Array.from(new Set([...ep.parameters, ...pathParameters(ep.path)]));
   const decision = authorize({ scope, url: `${base}${ep.path}`, method, requestsUsed: 0 });
-  const category = categoryForPath(ep.path, method);
+  const category = categoryForPath(ep.path);
   const objectType = objectTypeFor(ep.path);
   return {
     key: `${method} ${ep.path}`,
